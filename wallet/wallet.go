@@ -21,6 +21,7 @@ type Wallet struct {
 	PublicKey  []byte
 }
 
+// Address contains base58 of version, checksum, pubHash.
 func (w Wallet) Address() []byte {
 	pubHash := PublicKeyHash(w.PublicKey)
 
@@ -73,6 +74,12 @@ func Checksum(payload []byte) []byte {
 	return secondHash[:checksumLength]
 }
 
+// ValidateAddress get the check sum from full has
+// Address: 14LErwM2aHhdsDym6PkyutyG9ZSm51UHXc
+// FullHash: 00248bd9e7a51b7dd07aba9766a7c62d50207902802bc6c767
+// [Version] 00
+// [Pub Key Hash] 248bd9e7a51b7dd07aba9766a7c62d5020790280
+// [CheckSum] 2bc6c767
 func ValidateAddress(address string) bool {
 	pubKeyHash := Base58Decode([]byte(address))
 	actualChecksum := pubKeyHash[len(pubKeyHash)-checksumLength:]
