@@ -24,10 +24,9 @@ type Transaction struct {
 }
 
 func (tx *Transaction) Hash() []byte {
-	var hash [32]byte
 	txCopy := *tx
 	txCopy.ID = []byte{}
-	hash = sha256.Sum256(txCopy.Serialize())
+	hash := sha256.Sum256(txCopy.Serialize())
 
 	return hash[:]
 }
@@ -42,27 +41,27 @@ func (tx *Transaction) Serialize() []byte {
 	return encoded.Bytes()
 }
 
+// SetID is setting ID of encoded tx and then hashed.
 func (tx *Transaction) SetID() {
 	var encoded bytes.Buffer
-	var hash [32]byte
 
 	encode := gob.NewEncoder(&encoded)
 	err := encode.Encode(tx)
 	Handle(err)
 
-	hash = sha256.Sum256(encoded.Bytes())
+	hash := sha256.Sum256(encoded.Bytes())
 	tx.ID = hash[:]
 }
 
 // NewTransaction create a new transaction. From, to are the given address.
-func NewTransaction(from, to string, amount int, chain *BlockChain) *Transaction {
+func NewTransaction(from, to string, amount int, UTXO *UTXOSet) *Transaction {
 	var inputs []TxInput
 	var outputs []TxOutput
 
 	wallets, _ := wallet.CreateWallets()
 	w := wallets.GetWallet(from)
 
-	acc, validOutputs := chain.FindSpendableOutputs(wallet.PublicKeyHash(w.PublicKey), amount)
+	acc, validOutputs := UTXO.FindSpendableOutputs(wallet.PublicKeyHash(w.PublicKey), amount)
 
 	if acc < amount {
 		log.Panic("Error: not enough funds")
@@ -88,7 +87,7 @@ func NewTransaction(from, to string, amount int, chain *BlockChain) *Transaction
 
 	tx := Transaction{nil, inputs, outputs}
 	tx.ID = tx.Hash()
-	chain.SignTx(&tx, &w.PrivateKey)
+	UTXO.Blockchain.SignTx(&tx, &w.PrivateKey)
 
 	return &tx
 }

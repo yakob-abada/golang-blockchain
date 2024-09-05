@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"bytes"
+	"encoding/gob"
 	"github.com/tensor-programming/golang-blockchain/wallet"
 )
 
@@ -11,6 +12,10 @@ import (
 type TxOutput struct {
 	Value      int    // value in token
 	PubKeyHash []byte // public key is a value needed to unlock tokens that stored in value.
+}
+
+type TxOutputs struct {
+	Outputs []TxOutput
 }
 
 // TxInput are just reference to given TxOutput
@@ -38,12 +43,38 @@ func (in *TxInput) UsesKey(pubKeyHas []byte) bool {
 
 // Lock set publicKeyHashed after trimming version, and checksum.
 func (out *TxOutput) Lock(address []byte) {
+	out.PubKeyHash = PubKeyHash(address)
+}
+
+func PubKeyHash(address []byte) []byte {
 	pubKeyHash := wallet.Base58Encode(address)
-	pubKeyHash = pubKeyHash[1 : len(pubKeyHash)-4] // remove version and checksum from the hash
-	out.PubKeyHash = pubKeyHash
+	return pubKeyHash[1 : len(pubKeyHash)-4]
 }
 
 // IsLockedWithHash is validation to check if tx output could be unlocked.
 func (out *TxOutput) IsLockedWithHash(pubKeyHash []byte) bool {
-	return bytes.Equal(out.PubKeyHash, pubKeyHash)
+	given := string(out.PubKeyHash)
+	passed := string(pubKeyHash)
+
+	return given == passed
+}
+
+func (outs TxOutputs) Serialize() []byte {
+	var buffer bytes.Buffer
+
+	encode := gob.NewEncoder(&buffer)
+	err := encode.Encode(outs)
+	Handle(err)
+
+	return buffer.Bytes()
+}
+
+func DeserializeOutputs(data []byte) TxOutputs {
+	var outputs TxOutputs
+
+	decode := gob.NewDecoder(bytes.NewReader(data))
+	err := decode.Decode(&outputs)
+	Handle(err)
+
+	return outputs
 }

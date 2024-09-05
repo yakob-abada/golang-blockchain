@@ -35,7 +35,7 @@ func DBexists() bool {
 	return true
 }
 
-func ContinueBlockChain(address string) *BlockChain {
+func ContinueBlockChain() *BlockChain {
 	if DBexists() == false {
 		fmt.Println("No existing blockchain found, create one!")
 		runtime.Goexit()
@@ -186,44 +186,45 @@ func (chain *BlockChain) FindUnspentTransactions(pubKeyHash []byte) []Transactio
 	return unspentTxs
 }
 
-func (chain *BlockChain) FindUTXO(pubKeyHash []byte) []TxOutput {
-	var UTXOs []TxOutput
-	unspentTransactions := chain.FindUnspentTransactions(pubKeyHash)
+func (chain *BlockChain) FindUTXO() map[string]TxOutputs {
+	UTXO := make(map[string]TxOutputs)
+	// key is txID and value is out index.
+	spentTXOs := make(map[string][]int)
 
-	for _, tx := range unspentTransactions {
-		for _, out := range tx.Outputs {
-			if out.IsLockedWithHash(pubKeyHash) {
-				UTXOs = append(UTXOs, out)
+	iterator := chain.Iterator()
+
+	for {
+		block := iterator.Next()
+		for _, tx := range block.Transactions {
+			txID := hex.EncodeToString(tx.ID)
+		Outputs:
+			for outIdx, out := range tx.Outputs {
+				if spentTXOs[txID] != nil {
+					for _, spentOut := range spentTXOs[txID] {
+						if spentOut == outIdx {
+							continue Outputs
+						}
+					}
+				}
+				outs := UTXO[txID]
+				outs.Outputs = append(outs.Outputs, out)
+				UTXO[txID] = outs
 			}
-		}
-	}
 
-	return UTXOs
-}
-
-// FindSpendableOutputs that used find transaction that used to transfer token from one account to another.
-func (chain *BlockChain) FindSpendableOutputs(pubKeyHash []byte, amount int) (int, map[string][]int) {
-	unspentOuts := make(map[string][]int)
-	unspentTxs := chain.FindUnspentTransactions(pubKeyHash)
-	accumulated := 0
-
-Work:
-	for _, tx := range unspentTxs {
-		txID := hex.EncodeToString(tx.ID)
-
-		for outIdx, out := range tx.Outputs {
-			if out.IsLockedWithHash(pubKeyHash) && accumulated < amount {
-				accumulated += out.Value
-				unspentOuts[txID] = append(unspentOuts[txID], outIdx)
-
-				if accumulated >= amount {
-					break Work
+			if tx.IsCoinbase() == false {
+				for _, in := range tx.Inputs {
+					inTxID := hex.EncodeToString(in.ID)
+					spentTXOs[inTxID] = append(spentTXOs[inTxID], in.Out)
 				}
 			}
 		}
+
+		if len(block.PrevHash) == 0 {
+			break
+		}
 	}
 
-	return accumulated, unspentOuts
+	return UTXO
 }
 
 // FindTx by transaction ID. It loops over all transaction in all blocks and once it find, it returns it.
