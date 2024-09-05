@@ -98,13 +98,17 @@ func NewTransaction(from, to string, amount int, UTXO *UTXOSet) *Transaction {
 // This transaction is a rewarded to who did mining to it.
 func CoinBaseTx(to, data string) *Transaction {
 	if data == "" {
-		data = fmt.Sprintf("Coins to %s", to)
+		randData := make([]byte, 20)
+		_, err := rand.Read(randData)
+		Handle(err)
+
+		data = fmt.Sprintf("%x", randData)
 	}
 
 	// out is -1 because it references no output
 	txIn := TxInput{[]byte{}, -1, nil, []byte(data)}
 	// 100 is a reward of 100 tokens.
-	txOut := NewTxOutput(100, to)
+	txOut := NewTxOutput(20, to)
 
 	tx := Transaction{nil, []TxInput{txIn}, []TxOutput{*txOut}}
 	tx.SetID()
